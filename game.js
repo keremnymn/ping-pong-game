@@ -3,6 +3,7 @@
     let paused = false;
     const restartEvent = new Event('restart');
     let restartCount = 0;
+    let choice = 0;
     var script = document.createElement('script');
     script.type = 'text/javascript';
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js';    
@@ -37,36 +38,37 @@
             top: 0,
             left: '50%'
         },
-        stick2: {
-            right: 0,
+        stick: {
             width: 12,
             height: 85,
             position: 'absolute',
+        },
+        stick2: {
+            right: 0,
             background: '#d3ffce',
             top: 150
         },
         stick1: {
             left: 0,
-            width: 12,
-            height: 85,
             background: '#C6A62F',
-            position: 'absolute',
             top: 150
         },
         startText: {
             color: 'white',
-            marginTop: '30%',
-            fontFamily: 'Verdana,Charcoal,sans-serif'
+            marginTop: '20%',
+            fontFamily: 'Verdana,Charcoal,sans-serif',
+            zIndex: '1090'
         },
         firstDiv: {
             textAlign: 'center',
-            opacity: '60%',
-            marginTop: '-30%',
+            opacity: '0%',
+            marginTop: '-20%',
             marginLeft: '15%',
             marginRight: '15%',
             fontFamily: 'Verdana, Geneva, Tahoma, sans-serif',
             fontSize: 'large',
-            color: 'white'
+            color: 'white',
+            zIndex: 1,
         },
         secondDiv: {
             marginTop: '-30px',
@@ -127,22 +129,26 @@
         $('<div/>', {id: 'pong-game'}).css(CSS.arena).appendTo('body');
         $('<div/>', {id: 'pong-line'}).css(CSS.line).appendTo('#pong-game');
         $('<div/>', {id: 'pong-ball'}).css(CSS.ball).appendTo('#pong-game');
-        $('<div/>', {id: 'stick-1'}).css(CSS.stick1).appendTo('#pong-game')
-        $('<div/>', {id: 'stick-2'}).css(CSS.stick2).appendTo('#pong-game')
+        $('<div/>', {id: 'stick-1'}).css($.extend(CSS.stick1, CSS.stick)).appendTo('#pong-game')
+        $('<div/>', {id: 'stick-2'}).css($.extend(CSS.stick2, CSS.stick)).appendTo('#pong-game')
         $('<div/>', {id: 'text-div'}).css(CSS.textDiv).appendTo('#pong-game')
         $('<h1/>', {id: 'start-text'}).css(CSS.startText)
-                                    .html('Press Enter to start')
+                                    .html('<p style="text-align: center;">Press 1 and enter for singleplayer<br>Press 2 and enter for multiplayer</p>')
                                     .appendTo('#text-div')
     }
 
     function moveSliders(keyCode) {
-        switch (keyCode) {
-            case 87:
-                CONSTS.stick1Speed = -15;
-                break;
-            case 83:
-                CONSTS.stick1Speed = 15;
-                break;
+        if (keyCode == 87) {
+            CONSTS.stick1Speed = -15;
+        }
+        else if (keyCode == 83) {
+            CONSTS.stick1Speed = 15;
+        }
+        else if (keyCode == 38 && choice == 1) {
+            CONSTS.stick2Speed = -15;
+        }
+        else if (keyCode == 40 && choice == 1) {
+            CONSTS.stick2Speed = 15;
         }
     }
     function manipulateScores() {
@@ -156,15 +162,18 @@
     }
     function gameOver(msg) {
         freeze()
-        let _msg = '<p style="text-align: center;" id="restart-game">' + msg + '<br>Click here to restart</p>'
+        CSS.firstDiv.opacity = '0%'
+        let _msg = '<p style="text-align: center; z-index: 1080;" id="restart-game">' + msg + '<br>Click here to restart</p>'
         $('#start-text').html(_msg)
         $('#restart-game').click(()=> {
+            CSS.firstDiv.opacity = '60%'
             document.getElementById('pong-game').remove()
             CONSTS.score1 = 0;
             CONSTS.score2 = 0;
             paused = false;
             enterPressed = 0;
             restartCount = 0;
+            choice = 0;
             draw();
             drawTable();
             roll(isNew=true);
@@ -174,11 +183,23 @@
     function setEvents() {
         $(document).on('restart', ()=> {
             if (CONSTS.score2 >= 4) {
-                gameOver("You've lost")
+                if (choice == 0) {
+                    gameOver("You've lost")
+                }
+                else {
+                    confetti({zIndex: 1051})
+                    gameOver("Player 2 won.")
+                }
             }
             else if (CONSTS.score1 >= 4) {
-                confetti({zIndex: 1051})
-                gameOver("You've win!")
+                if (choice == 0) {
+                    confetti({zIndex: 1051})
+                    gameOver("You've win!")
+                }
+                else {
+                    confetti({zIndex: 1051})
+                    gameOver("Player 1 won.")
+                }
             }
             else {
                 manipulateScores()
@@ -188,7 +209,11 @@
             if (e.keyCode == 13) {
                 $('#start-text').html(null)
                 enterPressed += 1
+                CSS.firstDiv.opacity = '60%'
                 roll(isNew=true);
+            }
+            if (e.keyCode == 50) {
+                choice = 1;
             }
             if (enterPressed == 1) {
                 if (e.keyCode == 80) {
@@ -202,8 +227,12 @@
 
         $(document).on('keyup', function (e) {
             let stick1keys = [87, 83]
+            let stick2keys = [38, 40]
             if (stick1keys.includes(e.keyCode)) {
                 CONSTS.stick1Speed = 0
+            }
+            else if (choice == 1 && stick2keys.includes(e.keyCode)) {
+                CONSTS.stick2Speed = 0
             }
         });
     }
@@ -264,9 +293,12 @@
     }
     function loop() {
         window.pongLoop = setInterval(function () { 
-            CSS.stick1.top = clamp(CSS.stick1.top + CONSTS.stick1Speed, 0, CSS.arena.height - CSS.stick1.height)
+            CSS.stick1.top = clamp(CSS.stick1.top + CONSTS.stick1Speed, 0, CSS.arena.height - CSS.stick.height)
             $('#stick-1').css('top', CSS.stick1.top);
-
+            if (choice == 1) {
+                CSS.stick2.top = clamp(CSS.stick2.top + CONSTS.stick2Speed, 0, CSS.arena.height - CSS.stick.height)
+                $('#stick-2').css('top', CSS.stick2.top);
+            }
             if (paused) {
                 //pass
             }
@@ -284,14 +316,24 @@
             }
 
             $('#pong-ball').css({top: CSS.ball.top,left: CSS.ball.left});
-
-            if (CSS.ball.left < 12) {
-            	CSS.ball.top > CSS.stick1.top && CSS.ball.top < CSS.stick1.top + CSS.stick1.height && (CONSTS.ballLeftSpeed = CONSTS.ballLeftSpeed * -1) || roll(isnew=false);
+            let onLeft = CSS.ball.left <= CSS.arena.width / 2 ? true : false
+            let currentStick = onLeft ? CSS.stick1 : CSS.stick2
+            if (CSS.ball.left <= CSS.stick.width || CSS.ball.left >= CSS.arena.width - CSS.ball.width - CSS.stick.width) {
+            	CSS.ball.top > currentStick.top && CSS.ball.top < currentStick.top + CSS.stick.height && (CONSTS.ballLeftSpeed = CONSTS.ballLeftSpeed * -1) || roll(isNew=false);
             }
-            if (CSS.ball.left > CSS.arena.width - CSS.ball.width - 12) {
-                CSS.ball.top > CSS.stick2.top && CSS.ball.top < CSS.stick2.top + CSS.stick2.height && (CONSTS.ballLeftSpeed = CONSTS.ballLeftSpeed * -1) || roll(isnew=false);
+            if (onLeft == true) {
+                if (CSS.ball.left - CSS.ball.width > CSS.arena.width - CSS.stick.width) {
+                    roll(isNew=false);
+                }
             }
-            stick2AI()
+            else if (onLeft == false) {
+                if (CSS.ball.left < CSS.stick.width) {
+                    roll(isNew=false);
+                }
+            }
+            if (choice == 0) {
+                stick2AI()
+            }
         }, CONSTS.gameSpeed);
     }
 
